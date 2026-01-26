@@ -17,9 +17,9 @@ class ModelRouter:
         
         # 3. Final decision
         if token_count > 200 or is_complex:
-            return "gpt-4o"  # The "Premium" model
+            return "llama-3.1-405b-reasoning"  # The "Premium" model
         
-        return "gpt-4o-mini" # The "Economy" model
+        return "llama-3.3-70b-versatile" # The "Economy" model
 
 # Test logic for verification
 if __name__ == "__main__":
