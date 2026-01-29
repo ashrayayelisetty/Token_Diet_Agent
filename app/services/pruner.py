@@ -38,11 +38,10 @@ if __name__ == "__main__":
     
     # 1. Add 'Noisy' data (Stuff the AI shouldn't see for every question)
     knowledge_base = [
-        "The Token-Diet Agent is designed to save money on API calls.",
-        "The weather today is cloudy with a chance of rain.",
-        "LangGraph is a library for building stateful, multi-agent applications.",
-        "A typical healthy breakfast includes oatmeal and fruits."
-    ]
+    "The agent saves money by using Semantic Pruning to remove 80% of irrelevant text before sending it to the LLM.",
+    "It uses a Model Router to send simple questions to cheaper models and only uses expensive models for complex reasoning.",
+    "By reducing input tokens, the agent significantly lowers the cost per API request."
+  ]
     pruner.add_context(knowledge_base)
     
     # 2. Ask a specific question about the project
