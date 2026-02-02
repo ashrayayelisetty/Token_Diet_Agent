@@ -5,33 +5,43 @@ from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
+
 class ResponseJudge:
+    """
+    Evaluates the quality of an AI response.
+    Returns a numeric score (1–10) for LangGraph decisions.
+    """
+
     def __init__(self):
-        # We use the 70B model because it's better at 'judging' logic
         self.llm = ChatGroq(
             api_key=os.getenv("GROQ_API_KEY"),
             model_name="llama-3.3-70b-versatile"
         )
 
-    def evaluate_response(self, query: str, response: str) -> bool:
-        """
-        Analyzes the response to see if it actually answered the question.
-        """
+    def evaluate_response(self, query: str, response: str) -> int:
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a Senior QA Engineer. If the AI answer provides the requested information, reply 'PASS'. If the AI says 'I don't know', 'not mentioned', or gives an empty excuse, reply 'FAIL'."),
-            ("human", f"User Question: {query}\nAI Response: {response}")
+            (
+                "system",
+                "You are a strict QA evaluator.\n"
+                "Score the AI answer from 1 to 10.\n"
+                "Score 8–10 if the answer directly addresses the question.\n"
+                "Score 1–4 if it avoids, deflects, or lacks information.\n"
+                "Reply with ONLY the number."
+            ),
+            (
+                "human",
+                f"User Question:\n{query}\n\nAI Response:\n{response}"
+            )
         ])
-        
-        chain = prompt | self.llm
-        result = chain.invoke({}).content
-        
-        return "PASS" in result.upper()
 
-if __name__ == "__main__":
-    judge = ResponseJudge()
-    
-    # Test 1: A failure case
-    print(f"Test 1 (Failure): {judge.evaluate_response('Who is the CEO?', 'The text does not mention the CEO.')}")
-    
-    # Test 2: A success case
-    print(f"Test 2 (Success): {judge.evaluate_response('What is 10+10?', '10 + 10 is 20.')}")
+        chain = prompt | self.llm
+        result = chain.invoke({}).content.strip()
+
+        # Defensive parsing (LLMs sometimes misbehave)
+        try:
+            score = int(result)
+        except ValueError:
+            score = 3  # default fail-safe
+
+        print(f"🧪 JUDGE SCORE: {score}/10")
+        return score
