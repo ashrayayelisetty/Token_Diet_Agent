@@ -6,33 +6,39 @@ from app.agents.state import AgentState
 
 load_dotenv()
 
+
 class ExecutionerNode:
-    def __init__(self):
-        # We'll use the versatile model as our default powerhouse
-        self.llm = ChatGroq(
-            api_key=os.getenv("GROQ_API_KEY"),
-            model_name="llama-3.3-70b-versatile"
-        )
+    """
+    Executes the LLM call using the model selected by the router.
+    This node is COST-AWARE and respects dynamic routing.
+    """
 
     def execute(self, state: AgentState) -> dict:
-        """
-        The main logic for the Executor. It takes the state,
-        generates an answer, and returns the updated fields.
-        """
-        print(f"--- EXECUTOR: Generating response for model {state.get('chosen_model')} ---")
-        
-        # 1. Prepare the Prompt
+        print(f"--- EXECUTOR: Using model → {state['chosen_model']} ---")
+
+        # Create LLM dynamically based on routing decision
+        llm = ChatGroq(
+            api_key=os.getenv("GROQ_API_KEY"),
+            model_name=state["chosen_model"]
+        )
+
+        # Build prompt using PRUNED context only
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful assistant. Answer based ONLY on the provided context."),
-            ("human", f"Context: {state['context']}\n\nQuestion: {state['prompt']}")
+            (
+                "system",
+                "You are a precise assistant. Answer ONLY using the provided context. "
+                "If the answer is not present, say 'Information not available.'"
+            ),
+            (
+                "human",
+                f"Context:\n{state['context']}\n\nQuestion:\n{state['prompt']}"
+            )
         ])
 
-        # 2. Call the LLM (Using the model chosen by our router earlier)
-        chain = prompt | self.llm
+        chain = prompt | llm
         response = chain.invoke({})
 
-        # 3. Update the Scorecard (State)
-        # Note: In LangGraph, we return only the keys we want to update
+        # Update only relevant state fields (LangGraph-style)
         return {
             "response": response.content,
             "iteration_count": state.get("iteration_count", 0) + 1
