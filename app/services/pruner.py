@@ -25,6 +25,22 @@ class SemanticPruner:
             embedding_function=self.embeddings,
             persist_directory="./db"
         )
+    def ingest_document(self, document_text: str, chunk_size: int = 500):
+        """
+        Ingests a document by splitting it into chunks and adding to vector DB.
+        """
+        chunks = []
+        start = 0
+
+        while start < len(document_text):
+            end = start + chunk_size
+            chunk = document_text[start:end]
+            chunks.append(chunk)
+            start = end
+
+        self.vector_db.add_texts(chunks)
+        print(f"📚 Ingested {len(chunks)} chunks into vector DB.")
+
 
     def add_context(self, text_chunks: list[str]):
         """
