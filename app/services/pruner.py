@@ -2,16 +2,24 @@ import os
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
+from app.utils import count_tokens
 
 load_dotenv()
 
+
 class SemanticPruner:
+    """
+    Semantic Pruner that ensures token reduction.
+    It will NEVER return more tokens than the original context.
+    """
+
     def __init__(self):
-        # 1. Use a FREE local model (all-MiniLM-L6-v2)
-        # This downloads a small file to your PC and runs for free
-        self.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        
-        # 2. Setup ChromaDB
+        # Free local embedding model
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
+        )
+
+        # ChromaDB setup
         self.vector_db = Chroma(
             collection_name="token_diet_context",
             embedding_function=self.embeddings,
@@ -19,38 +27,68 @@ class SemanticPruner:
         )
 
     def add_context(self, text_chunks: list[str]):
+        """
+        Adds chunks to vector store (knowledge base).
+        """
         self.vector_db.add_texts(text_chunks)
-        print(f"✅ Successfully added {len(text_chunks)} chunks to FREE storage.")
-    def get_relevant_context(self, query: str, k: int = 2) -> str:
-        """
-        Finds the top 'k' most relevant pieces of information for a query.
-        This is what reduces the token count by filtering out noise.
-        """
-        # Similarity search against the local vector database
-        results = self.vector_db.similarity_search(query, k=k)
-        
-        # Combine the results into a single clean string
-        pruned_context = "\n".join([doc.page_content for doc in results])
-        return pruned_context
+        print(f"✅ Added {len(text_chunks)} chunks to vector DB.")
 
+    def get_relevant_context(
+        self,
+        query: str,
+        original_context: str,
+        k: int = 2
+    ) -> str:
+        """
+        Returns semantically relevant context WITHOUT increasing token count.
+        Falls back to original context if pruning is not beneficial.
+        """
+
+        # Token count BEFORE pruning
+        original_tokens = count_tokens(original_context)
+
+        # Retrieve relevant chunks
+        results = self.vector_db.similarity_search(query, k=k)
+        retrieved_context = "\n".join(
+            doc.page_content for doc in results
+        )
+
+        # Token count AFTER retrieval
+        retrieved_tokens = count_tokens(retrieved_context)
+
+        # Safety rule: never increase tokens
+        if retrieved_tokens >= original_tokens:
+            return original_context
+
+        return retrieved_context
+
+
+# -------------------------
+# Local Test (Optional)
+# -------------------------
 if __name__ == "__main__":
     pruner = SemanticPruner()
-    
-    # 1. Add 'Noisy' data (Stuff the AI shouldn't see for every question)
+
     knowledge_base = [
-    "The agent saves money by using Semantic Pruning to remove 80% of irrelevant text before sending it to the LLM.",
-    "It uses a Model Router to send simple questions to cheaper models and only uses expensive models for complex reasoning.",
-    "By reducing input tokens, the agent significantly lowers the cost per API request."
-  ]
+        "The agent saves money by pruning unnecessary tokens before sending prompts to the LLM.",
+        "It routes simple queries to cheaper models and complex ones to powerful models.",
+        "Semantic pruning significantly reduces token usage and API costs."
+    ]
+
     pruner.add_context(knowledge_base)
-    
-    # 2. Ask a specific question about the project
+
     query = "How does the agent save money?"
-    
-    print(f"\n--- Day 5 Test ---")
-    print(f"User Query: {query}")
-    
-    # Retrieve only relevant info
-    context = pruner.get_relevant_context(query)
-    
-    print(f"Context Found:\n{context}")
+    original_context = (
+        "This document explains many things about AI systems, models, "
+        "infrastructure, deployment strategies, monitoring, scaling, and cost control."
+    )
+
+    pruned = pruner.get_relevant_context(
+        query=query,
+        original_context=original_context
+    )
+
+    print("\n--- PRUNER TEST ---")
+    print("Original tokens:", count_tokens(original_context))
+    print("Final tokens:", count_tokens(pruned))
+    print("Final context:\n", pruned)

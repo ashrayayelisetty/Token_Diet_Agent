@@ -4,7 +4,7 @@ from app.services.pruner import SemanticPruner
 from app.services.router import ModelRouter
 from app.services.judge import ResponseJudge
 from app.agents.executor import ExecutionerNode
-from app.utils import count_tokens
+from app.utils import count_tokens, calculate_cost
 
 
 # --- Initialize Services ---
@@ -14,9 +14,9 @@ judge = ResponseJudge()
 executor = ExecutionerNode()
 
 
-# --- Graph Nodes ---
-
-from app.utils import count_tokens, calculate_cost
+# -------------------------
+# Graph Nodes
+# -------------------------
 
 def prune_node(state: AgentState) -> dict:
     print("\n✂️ PRUNER NODE")
@@ -26,13 +26,16 @@ def prune_node(state: AgentState) -> dict:
     # Token count BEFORE pruning
     original_tokens = count_tokens(original_context)
 
-    # Semantic pruning
-    pruned_context = pruner.get_relevant_context(state["prompt"])
+    # ✅ Corrected call (IMPORTANT)
+    pruned_context = pruner.get_relevant_context(
+        query=state["prompt"],
+        original_context=original_context
+    )
 
     # Token count AFTER pruning
     final_tokens = count_tokens(pruned_context)
 
-    # Cost calculation (simulated but valid)
+    # Cost calculation (simulated)
     original_cost = calculate_cost(original_tokens, "gpt-4o")
     optimized_cost = calculate_cost(final_tokens, "gpt-4o-mini")
 
@@ -76,7 +79,9 @@ def judge_node(state: AgentState) -> dict:
     }
 
 
-# --- Conditional Logic ---
+# -------------------------
+# Conditional Logic
+# -------------------------
 
 def decide_next_step(state: AgentState):
     print("\n🧠 DECISION NODE")
@@ -93,7 +98,9 @@ def decide_next_step(state: AgentState):
     return "prune"
 
 
-# --- Build LangGraph ---
+# -------------------------
+# Build LangGraph
+# -------------------------
 
 def build_agent_graph():
     graph = StateGraph(AgentState)
