@@ -11,12 +11,12 @@ Standard RAG (Retrieval-Augmented Generation) often sends massive blocks of text
 ## 💡 The Solution: The "Token Diet"
 This agent uses a multi-stage pipeline to ensure we only pay for the tokens we actually need:
 
-1. **Model Router:** Dynamically selects between high-reasoning (LLama 3.3 70B) and fast/cheap models based on query complexity.
+1. **Model Router:** Dynamically selects between high-reasoning (Llama-3.3-70B) and fast/cheap models based on query complexity.
 2. **Semantic Pruner:** Uses a local vector database (ChromaDB) to filter out 80% of "noise" and only send the most relevant context.
 3. **Self-Correction Judge:** A dedicated "Quality Control" node that reviews the AI's response. If the answer is insufficient, the agent automatically expands its search radius and retries.
 
 ## 🛠️ Tech Stack
-- **Orchestration:** LangChain
+**Orchestration:** LangGraph (Agentic Control Flow)
 - **LLM Provider:** Groq (Llama-3 models)
 - **Vector DB:** ChromaDB (Local persistence)
 - **Embeddings:** HuggingFace (all-MiniLM-L6-v2) - *Runs 100% free locally*
