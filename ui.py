@@ -6,9 +6,8 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
-from app.agents.graph import build_agent_graph
+from app.agents.graph import build_agent_graph, get_pruner
 from app.utils.file_loader import extract_text_from_file
-from app.services.pruner import SemanticPruner
 from app.utils import count_tokens
 
 # -------------------------
@@ -139,7 +138,7 @@ if st.button("🚀 Run Token-Diet Agent", type="primary", use_container_width=Tr
         st.success(f"✅ Extracted **{len(context):,}** characters (**{doc_tokens:,}** tokens)")
         
         with st.spinner("Building vector index for semantic search..."):
-            pruner = SemanticPruner()
+            pruner = get_pruner()  # Use the same pruner instance as the graph
             pruner.ingest_document(context)
         
         st.success("✅ Document indexed in ChromaDB")

@@ -8,10 +8,16 @@ from app.utils import count_tokens, calculate_cost
 
 
 # --- Initialize Services ---
+# Make pruner accessible as a module-level variable
 pruner = SemanticPruner()
 router = ModelRouter()
 judge = ResponseJudge()
 executor = ExecutionerNode()
+
+
+def get_pruner():
+    """Returns the global pruner instance for use in UI"""
+    return pruner
 
 
 # -------------------------

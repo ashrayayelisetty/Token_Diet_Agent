@@ -23,19 +23,24 @@ class SemanticPruner:
         # ChromaDB setup with newer API
         self.client = chromadb.PersistentClient(path="./db")
         
-        # Get or create collection
-        try:
-            self.collection = self.client.get_collection(
-                name="token_diet_context"
-            )
-        except:
-            self.collection = self.client.create_collection(
-                name="token_diet_context"
-            )
-    def ingest_document(self, document_text: str, chunk_size: int = 500):
+        # Get or create collection (reuse if exists)
+        self.collection = self.client.get_or_create_collection(
+            name="token_diet_context"
+        )
+    def ingest_document(self, document_text: str, chunk_size: int = 800):
         """
         Ingests a document by splitting it into chunks and adding to vector DB.
+        Larger chunks (800) to keep related information together.
+        Clears existing data first to avoid mixing documents.
         """
+        # Clear existing data before ingesting new document
+        try:
+            self.client.delete_collection(name="token_diet_context")
+            self.collection = self.client.create_collection(name="token_diet_context")
+            print("🗑️ Cleared previous document data")
+        except:
+            pass
+        
         chunks = []
         start = 0
 
@@ -73,7 +78,7 @@ class SemanticPruner:
         self,
         query: str,
         original_context: str,
-        k: int = 2
+        k: int = 6
     ) -> str:
         """
         Returns semantically relevant context WITHOUT increasing token count.
@@ -83,27 +88,36 @@ class SemanticPruner:
         # Token count BEFORE pruning
         original_tokens = count_tokens(original_context)
 
-        # Embed query and search
-        query_embedding = self.embeddings.embed_query(query)
-        
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=k
-        )
-        
-        # Extract documents from results
-        retrieved_context = "\n".join(
-            results['documents'][0] if results['documents'] else []
-        )
+        # Refresh collection reference (in case it was recreated)
+        try:
+            self.collection = self.client.get_collection(name="token_diet_context")
+            
+            # Embed query and search
+            query_embedding = self.embeddings.embed_query(query)
+            
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=k
+            )
+            
+            # Extract documents from results
+            retrieved_context = "\n".join(
+                results['documents'][0] if results['documents'] else []
+            )
 
-        # Token count AFTER retrieval
-        retrieved_tokens = count_tokens(retrieved_context)
+            # Token count AFTER retrieval
+            retrieved_tokens = count_tokens(retrieved_context)
 
-        # Safety rule: never increase tokens
-        if retrieved_tokens >= original_tokens or not retrieved_context:
+            # Safety rule: never increase tokens
+            if retrieved_tokens >= original_tokens or not retrieved_context:
+                return original_context
+
+            return retrieved_context
+            
+        except Exception as e:
+            # Collection doesn't exist or query failed, return original context
+            print(f"⚠️ Pruner fallback: {str(e)}")
             return original_context
-
-        return retrieved_context
 
 
 # -------------------------
