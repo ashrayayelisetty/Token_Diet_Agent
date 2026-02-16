@@ -4,3 +4,14 @@ __pycache__/
 *.pyc
 .DS_Store
 db/
+
+# Personal documentation (not needed in Git)
+WHATS_NEW.md
+PORTFOLIO_GUIDE.md
+DEMO_CHECKLIST.md
+RESUME_HIGHLIGHTS.md
+BEFORE_AFTER.md
+START_HERE.md
+SUMMARY.md
+QUICKSTART.md
+.env.example

@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
+import chromadb
+from chromadb.config import Settings
 from app.utils import count_tokens
 
 load_dotenv()
@@ -19,12 +20,18 @@ class SemanticPruner:
             model_name="all-MiniLM-L6-v2"
         )
 
-        # ChromaDB setup
-        self.vector_db = Chroma(
-            collection_name="token_diet_context",
-            embedding_function=self.embeddings,
-            persist_directory="./db"
-        )
+        # ChromaDB setup with newer API
+        self.client = chromadb.PersistentClient(path="./db")
+        
+        # Get or create collection
+        try:
+            self.collection = self.client.get_collection(
+                name="token_diet_context"
+            )
+        except:
+            self.collection = self.client.create_collection(
+                name="token_diet_context"
+            )
     def ingest_document(self, document_text: str, chunk_size: int = 500):
         """
         Ingests a document by splitting it into chunks and adding to vector DB.
@@ -38,7 +45,14 @@ class SemanticPruner:
             chunks.append(chunk)
             start = end
 
-        self.vector_db.add_texts(chunks)
+        # Add to ChromaDB with embeddings
+        embeddings_list = self.embeddings.embed_documents(chunks)
+        
+        self.collection.add(
+            documents=chunks,
+            embeddings=embeddings_list,
+            ids=[f"doc_{i}" for i in range(len(chunks))]
+        )
         print(f"📚 Ingested {len(chunks)} chunks into vector DB.")
 
 
@@ -46,7 +60,13 @@ class SemanticPruner:
         """
         Adds chunks to vector store (knowledge base).
         """
-        self.vector_db.add_texts(text_chunks)
+        embeddings_list = self.embeddings.embed_documents(text_chunks)
+        
+        self.collection.add(
+            documents=text_chunks,
+            embeddings=embeddings_list,
+            ids=[f"chunk_{i}" for i in range(len(text_chunks))]
+        )
         print(f"✅ Added {len(text_chunks)} chunks to vector DB.")
 
     def get_relevant_context(
@@ -63,17 +83,24 @@ class SemanticPruner:
         # Token count BEFORE pruning
         original_tokens = count_tokens(original_context)
 
-        # Retrieve relevant chunks
-        results = self.vector_db.similarity_search(query, k=k)
+        # Embed query and search
+        query_embedding = self.embeddings.embed_query(query)
+        
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k
+        )
+        
+        # Extract documents from results
         retrieved_context = "\n".join(
-            doc.page_content for doc in results
+            results['documents'][0] if results['documents'] else []
         )
 
         # Token count AFTER retrieval
         retrieved_tokens = count_tokens(retrieved_context)
 
         # Safety rule: never increase tokens
-        if retrieved_tokens >= original_tokens:
+        if retrieved_tokens >= original_tokens or not retrieved_context:
             return original_context
 
         return retrieved_context

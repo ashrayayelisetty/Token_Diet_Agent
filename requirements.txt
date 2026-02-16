@@ -1,9 +1,15 @@
 langgraph==0.2.0
 langchain-openai
 chromadb
+langchain-chroma
 fastapi
 uvicorn
 python-dotenv
 tiktoken
 pydantic
 langchain-community
+streamlit
+plotly
+pypdf
+langchain-groq
+langchain-huggingface
